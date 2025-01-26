@@ -32,7 +32,7 @@ The high-level architecture includes a distributed system capable of handling 10
 
 ### High-Level Architecture Diagram
 
-![High-Level Architecture](../Diagrams/high-level-architecture.svg)
+![High-Level Architecture](../Diagrams/PNG/HIGH-LEVEL%20DESIGN.png)
 
 ---
 
@@ -127,5 +127,5 @@ The App Server handles all incoming requests, manages business logic, and routes
 
 ### Diagrams
 
-1. [High-Level Architecture](../Diagrams/SVG/HIGH-LEVEL%20DESIGN.svg)
+1. [High-Level Architecture](../Diagrams/DRAW.io/MODERN%20SOFTWARE%20ARCHITECTURES.drawio)
 <!-- 2. [Database Structure](../Diagrams/database-structure.drawio) -->
