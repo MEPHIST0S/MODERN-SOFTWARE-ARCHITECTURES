@@ -1,131 +1,118 @@
-# Water Quality Monitoring Platform Documentation
+# Water Quality Monitoring Platform - System Documentation
 
-## 1. Overview
+## Table of Contents
 
-The Water Quality Monitoring Platform is designed to track and analyze water quality in real-time across municipal, industrial, and natural water sources. By leveraging IoT sensors, data analytics, and AI, the system detects contaminants, monitors chemical levels, and provides actionable insights to ensure safe and sustainable water usage.
-The platform offers live dashboards for visualizing water quality metrics, automated alerts for contamination or threshold breaches, and predictive analytics for maintenance and quality improvement. It integrates seamlessly with municipal water systems, industrial plants, and environmental organizations to support effective water resource management.
-Scalability and reliability are critical, as the platform must handle data from large-scale sensor deployments across various regions. Background workers process tasks like aggregating sensor data, generating reports, and sending real-time alerts. Designed for global deployments, the platform supports high availability through distributed systems and robust data management.
-Additionally, the platform provides APIs for external integration, enabling interoperability with municipal systems, industrial control platforms, and environmental monitoring organizations. These APIs are designed to handle high request volumes securely, ensuring seamless communication and data exchange.
-
-## 2. Executive Summary
-
-The Water Quality Monitoring Platform is designed to monitor and analyze water quality in real-time across municipal, industrial, and natural water sources. Using IoT sensors, data analytics, and AI, the platform provides actionable insights, automated alerts, and predictive analytics to ensure sustainable water usage.
-
-The architecture prioritizes scalability, reliability, and global availability.
-
-## 3. High-Level Architecture
-
-The high-level architecture includes a distributed system capable of handling 10 million IoT sensors. The core components include:
-
-- **IoT Sensors**: Collect real-time data on pH, turbidity, dissolved oxygen, and temperature.
-- **DNS Load Balancers**: Distribute traffic to regional load balancers.
-- **Load Balancer Cluster**: Scales traffic handling and routes requests to the App Server.
-- **App Server**: Manages data ingestion, processing, and routing.
-- **Core Services**:
-  - **Water Quality Monitoring**: Detects contaminants and threshold breaches.
-  - **Notification Service**: Sends real-time alerts to users.
-  - **Analytics Service**: Generates predictive insights and maintenance reports.
-- **Storage Layer**:
-  - **PostgreSQL**: For structured, queryable data.
-  - **AWS S3**: For long-term storage and historical analysis.
-- **Outputs**: User Dashboards for actionable insights.
-
-### High-Level Architecture Diagram
-
-![High-Level Architecture](../Diagrams/PNG/HIGH-LEVEL%20DESIGN.png)
+1. [Overview](#overview)
+2. [High-Level Architecture](#high-level-architecture)
+3. [System Design Considerations & Scalability Strategies](#system-design-considerations--scalability-strategies)
+4. [Data Flow](#data-flow)
+5. [API Structure & Endpoints](#api-structure--endpoints)
+6. [Security & Authentication](#security--authentication)
+7. [Future Improvements](#future-improvements)
+8. [Conclusion](#conclusion)
 
 ---
 
-## 4. Key Decisions and Scalability Strategies
+## Overview
 
-### Summary of Key Decisions
+### Introduction
 
-| **Component**       | **Limit**                                | **Solution**                                                                                            |
-|----------------------|------------------------------------------|---------------------------------------------------------------------------------------------------------|
-| **IoT Sensors**      | 10 million devices                      | DNS Load Balancer, Load Balancer Cluster                                                               |
-| **Database (PostgreSQL)** | 30,000 TPS; 32 TB per table          | Sharding, Read Replicas                                                                                |
-| **Object Storage (S3)** | 3,500 PUT; 5,500 GET requests/sec/bucket | Bucket Partitioning, Multi-part Uploads, Redis Cache                                                   |
-| **Celery Tasks**     | 100,000 tasks/sec                       | RabbitMQ Clustering, Horizontal Scaling of Workers                                                    |
-| **Authentication**   | 1 million active users                  | OAuth2-based Authentication, Load Balancers                                                           |
-| **Latency**          | <300ms detection; <500ms analytics      | Redis Caching, Regional Deployments                                                                   |
+The **Water Quality Monitoring Platform** is designed to track and analyze water quality in real-time across municipal, industrial, and natural water sources. By leveraging IoT sensors, data analytics, and AI, the system detects contaminants, monitors chemical levels, and provides actionable insights to ensure safe and sustainable water usage.
 
-### Key Scalability Strategies
+### Key Features
 
-- **Autoscaling**: Kubernetes dynamically scales App Server and Celery workers.
-- **Database Optimization**: PostgreSQL sharding and read replicas reduce contention.
-- **Caching**: Redis caches frequently accessed data for low-latency operations.
-- **Task Prioritization**: RabbitMQ prioritizes critical tasks like contamination alerts.
+- **Real-Time Monitoring:** Data ingestion from **10 million IoT sensors**.
+- **Contamination Detection:** AI-based models for identifying anomalies.
+- **Automated Alerts:** Threshold breach notifications.
+- **Predictive Analytics:** Maintenance forecasts and trend analysis.
+- **External API Integrations:** Municipal, industrial, and environmental platform support.
+- **Scalability & High Availability:** Robust distributed infrastructure with load balancing, caching, and asynchronous task processing.
 
 ---
 
-## 5. Detailed Component Descriptions
+## High-Level Architecture
 
-### App Server
+### Ingress & API Management
 
-The App Server handles all incoming requests, manages business logic, and routes data to appropriate services.
+- **IoT Sensors:** Deployed in various locations to collect water quality metrics.
+- **DNS Load Balancers:** Distributes incoming requests from sensors.
+- **Load Balancers:** Ensures efficient request distribution among backend servers.
+- **API Gateway:** Manages external and internal API requests.
+  - **Public API:** For external integrations (municipalities, industrial clients).
+  - **Private API:** For internal services and secure data access.
 
 ### Core Services
 
-- **Water Quality Monitoring**: Processes data from IoT sensors to detect contamination.
-- **Notification Service**: Sends alerts and updates to users.
-- **Analytics Service**: Generates reports and predictive insights for long-term planning.
+- **App Server:** Manages authentication, API requests, and data ingestion.
+- **Authentication & Role Management:** OAuth2-based user authentication with roles: `Operator`, `Scientist`, and `Admin`.
+- **Write API:** Handles data ingestion from sensors and services.
+- **Read API:** Fetches processed or raw data for users and external integrations.
 
-### Storage Layer
+### Message-Driven Processing
 
-- **PostgreSQL**: Stores structured, real-time data for immediate access.
-- **AWS S3**: Archives historical data for analytics and compliance.
+- **RabbitMQ Message Broker:** Ensures asynchronous task execution for background processing.
+- **Worker Services:**
+  - **Contamination Detection Service:** Analyzes incoming sensor data for contaminants.
+  - **AI Model Inference Service:** Runs ML-based contamination prediction.
+  - **Predictive Analytics Service:** Generates insights on water trends and maintenance.
+  - **Notification Service:** Sends alerts for contamination and system failures.
+  - **Report Generation Service:** Aggregates data and generates reports.
+  - **Monitoring Service:** Tracks system health and resource utilization.
 
----
+### Storage & Data Management
 
-## 6. Data Flow
+- **PostgreSQL Cluster:** Stores structured data (sensor readings, user activity logs).
+- **Redis Cache:** Caches frequently accessed data for fast retrieval.
+- **Object Storage (S3):** Stores historical sensor data and generated reports.
 
-### Overview of Data Flow
+### User Access & Dashboards
 
-1. **From IoT Sensors to Storage**:
-   - IoT Sensors → DNS Load Balancer → Load Balancer Cluster → App Server → Core Services → Storage.
-2. **From Storage to Users**:
-   - Storage → Analytics Service → Dashboards/Users.
-3. **Notifications**:
-   - Contamination Detection → Notification Service → Users.
-
-### Data Flow Diagram
-
-![Data Flow](../Diagrams/data-flow.svg)
-
----
-
-## 7. Limitations and Mitigations
-
-### Limitations
-
-- **Database Throughput**: PostgreSQL limited to 30,000 TPS per table.
-- **Object Storage**: AWS S3 bucket limits on PUT/GET requests.
-- **Task Queue**: Celery workers handle up to 100,000 tasks/second.
-
-### Mitigations
-
-- Database sharding and read replicas distribute load across multiple instances.
-- S3 bucket partitioning by region/type reduces contention.
-- RabbitMQ clustering and horizontal scaling of Celery workers ensure smooth task processing.
+- **CDN:** Distributes frontend assets and reduces latency.
+- **Load Balancer:** Manages user requests to backend servers.
+- **User Dashboard:** Provides real-time data visualization and alerts.
 
 ---
 
-## 8. Future Improvements
+## System Design Considerations & Scalability Strategies
 
-### Potential Enhancements
+### Challenges & Solutions
 
-1. **Edge Processing**:
-   - Deploy edge servers for preprocessing sensor data in high-traffic regions.
-2. **API Expansion**:
-   - Add APIs for new clients or industry partners.
-3. **Advanced Analytics**:
-   - Integrate machine learning models for anomaly detection and water quality forecasting.
+| Component               | Challenge                                        | Solution Implemented                                      |
+|-------------------------|------------------------------------------------|----------------------------------------------------------|
+| Load Balancers         | 10M IoT devices generating requests            | DNS Load Balancer distributes requests among multiple load balancers. |
+| Database (PostgreSQL)  | Max throughput 30,000 TPS; 32 TB per table      | Implemented sharding and read replicas to scale horizontally. |
+| Object Storage (S3)    | Max 3,500 PUT / 5,500 GET req/sec per bucket    | Used bucket partitioning and multi-part uploads.         |
+| Task Queue (Celery Workers) | 100,000 tasks/sec for background processing | RabbitMQ clustering and horizontal scaling of workers.   |
+| Caching Strategy       | Frequent queries increasing database load       | Redis caching for sensor metadata and contamination thresholds. |
+| Latency Requirements   | AI model execution time must be <500ms         | Optimized ML inference service and preloaded models.     |
 
 ---
 
-## 9. Appendix
+## Data Flow
 
-### Diagrams
+1. **IoT Sensors** send real-time data → **Load Balancers** → **App Server**.
+2. **Write API** processes data → stores in **PostgreSQL** (structured) or **S3** (raw/historical).
+3. **RabbitMQ** distributes tasks → **Worker Services** process data.
+4. **Contamination Detection & AI Models** analyze data → results stored in **PostgreSQL**.
+5. **Predictive Analytics & Reporting** generate insights → stored in **S3**.
+6. **Notifications** sent via **Notification Service** if contamination is detected.
+7. **User Dashboard** fetches data via **Read API** and displays live metrics.
 
-1. [High-Level Architecture](../Diagrams/DRAW.io/MODERN%20SOFTWARE%20ARCHITECTURES.drawio)
-<!-- 2. [Database Structure](../Diagrams/database-structure.drawio) -->
+---
+
+## API Structure & Endpoints
+
+(Define API endpoints with request and response examples.)
+
+---
+
+## Security & Authentication
+
+- **OAuth2 for user authentication.**
+- **Role-based access control.**
+
+---
+
+## Conclusion
+
+This architecture ensures a **highly scalable, resilient, and efficient system** for water quality monitoring, addressing performance limits, security concerns, and data availability while providing actionable insights in real-time.
