@@ -8,8 +8,7 @@
 4. [Data Flow](#data-flow)
 5. [API Structure & Endpoints](#api-structure--endpoints)
 6. [Security & Authentication](#security--authentication)
-7. [Future Improvements](#future-improvements)
-8. [Conclusion](#conclusion)
+7. [Conclusion](#conclusion)
 
 ---
 
@@ -31,6 +30,8 @@ The **Water Quality Monitoring Platform** is designed to track and analyze water
 ---
 
 ## High-Level Architecture
+
+![High-Level Architecture](../DIAGRAMS/PNG/High-Level%20Components%20Architecture.png)
 
 ### Ingress & API Management
 
