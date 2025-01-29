@@ -1,41 +1,13 @@
 # Water Quality Monitoring Platform - Backend Architecture
 
-## 1. Overview
-The **Water Quality Monitoring Platform** is designed to track and analyze water quality in real-time across **municipal, industrial, and natural water sources**. The platform leverages:
-- **IoT sensors** for real-time data collection.
-- **Data analytics & AI** for contamination detection and predictive insights.
-- **Scalable backend services** to handle millions of sensors and high transaction volumes.
-- **APIs** for seamless integration with external systems.
-
-The architecture is built for **high availability, scalability, and fault tolerance**, ensuring real-time decision-making for safe and sustainable water usage.
-
----
-
-## 2. High-Level Architecture
-The platform's backend is designed to support **10 million IoT sensors**, with the following key components:
-
-### **Core Components:**
-- **IoT Sensors:** Collect real-time data on **pH, turbidity, dissolved oxygen, and temperature**.
-- **DNS Load Balancers:** Distribute traffic to regional load balancers.
-- **Load Balancer Cluster:** Routes requests to the **App Server**.
-- **App Server:** Manages data ingestion, processing, and routing.
-- **Core Services:**
-  - **Water Quality Monitoring:** Detects contaminants and threshold breaches.
-  - **Notification Service:** Sends real-time alerts.
-  - **Analytics Service:** Generates predictive insights and maintenance reports.
-- **Storage Layer:**
-  - **PostgreSQL:** Stores structured data.
-  - **AWS S3:** Stores historical data for analysis.
-- **Outputs:** User dashboards for visualization and decision-making.
-
----
-
 ## **3. Backend Logic & Workflow**
 
 ### **Core Backend Logic Overview**
+
 The backend follows a **distributed microservices architecture**, ensuring that tasks are processed efficiently and bottlenecks are minimized.  
 
 ### **Key Responsibilities of the Backend:**
+
 1. **Ingesting data** from **10 million IoT sensors** in real-time.
 2. **Processing data** to detect water quality issues.
 3. **Storing data** efficiently using sharded databases and cloud storage.
@@ -47,11 +19,13 @@ The backend follows a **distributed microservices architecture**, ensuring that 
 ### **Step-by-Step Backend Workflow**
 
 #### **A. Data Ingestion** (Handling 10M sensors)
+
 - **Sensors → MQTT/Kafka → Load Balancer → API Gateway → App Server**  
 - Each sensor sends data every **10 seconds** (~1M TPS total).  
 - A **Kafka cluster** partitions the data to multiple consumer groups for parallel processing.  
 
 #### **B. Data Processing** (Detecting anomalies)
+
 - The **Water Quality Monitoring Service** analyzes data for:
   - **pH imbalances**
   - **Turbidity spikes**
@@ -60,15 +34,18 @@ The backend follows a **distributed microservices architecture**, ensuring that 
 - AI-based anomaly detection models flag potential issues.
 
 #### **C. Alerts & Notifications** (Real-time responses)
+
 - If contamination is detected:
   - The **Notification Service** pushes alerts via WebSockets, SMS, or email.
   - **RabbitMQ prioritizes urgent contamination alerts** to ensure sub-300ms response times.
   
 #### **D. Data Storage** (Efficient data management)
+
 - **PostgreSQL (sharded)** stores structured real-time sensor data.
 - **AWS S3** archives historical data for analytics and compliance.
 
 #### **E. User Dashboards & APIs**  
+
 - **REST & GraphQL APIs** provide access to live water quality data.
 - Users visualize contamination risks in real time.
 
@@ -77,14 +54,17 @@ The backend follows a **distributed microservices architecture**, ensuring that 
 ## **4. Key Backend Components**
 
 ### **1. App Server**
+
 - **Manages incoming requests** and routes them to the correct services.
 - **Implements API Rate Limiting & Authentication** (OAuth2, JWT).
 
 ### **2. Message Queue (RabbitMQ + Kafka)**
+
 - **Kafka** for high-throughput data ingestion (millions of sensor readings/sec).
 - **RabbitMQ** for real-time alerts with priority queues.
 
 ### **3. Database Architecture**
+
 - **PostgreSQL (Sharded)**
   - Hash-based partitioning by `sensor_id`.
   - Supports **30,000 TPS per shard**.
@@ -92,6 +72,7 @@ The backend follows a **distributed microservices architecture**, ensuring that 
   - Long-term, cost-efficient storage for historical analysis.
 
 ### **4. Task Prioritization (RabbitMQ)**
+
 | **Priority** | **Task**                  | **Latency Goal** |
 |-------------|--------------------------|----------------|
 | High        | Contamination alerts      | < 300ms       |
@@ -101,6 +82,7 @@ The backend follows a **distributed microservices architecture**, ensuring that 
 ---
 
 ## **5. Scalability & Fault Tolerance**
+
 1. **Auto-scaling Kubernetes cluster** to handle varying sensor loads.
 2. **Sharded database design** prevents bottlenecks.
 3. **Multi-region deployments** reduce latency for global users.
@@ -111,43 +93,26 @@ The backend follows a **distributed microservices architecture**, ensuring that 
 ## **6. Backend Load Calculation & Justification**
 
 ### **TPS Calculation**
+
 - **10M sensors sending data every 10 seconds** → 1M TPS.
 - Each **shard handles ~25K TPS**, safely below PostgreSQL’s 30K limit.
 
 ### **Queue Throughput**
+
 - **RabbitMQ handles 100K tasks/sec** via clustering.
 - **Kafka partitions** balance 1M TPS load across brokers.
 
 ### **Latency Optimization**
+
 - **Redis caching** ensures **< 500ms** API response times.
 - **Prioritized task processing** ensures contamination alerts within **300ms**.
 
 ---
 
 ### **Why This Backend Logic Works**
+
 - **Scalable**: Supports **millions of sensors** with auto-scaling components.
 - **Efficient**: Uses **sharded databases, priority queues, and caching**.
 - **Reliable**: Handles **high throughput with fault tolerance mechanisms**.
-
----
-
-## **7. Future Scalability & Optimizations**
-
-### **Immediate Scaling Solutions**
-- **Increase PostgreSQL shards from 32 → 40** for better TPS distribution.
-- **Add more RabbitMQ nodes** for task queue scaling.
-
-### **Long-Term Enhancements**
-1. **Edge Processing**:
-   - Deploy edge servers for preprocessing sensor data before cloud ingestion.
-2. **API Expansion**:
-   - Add REST & GraphQL APIs for new industry partners.
-3. **Advanced Analytics**:
-   - Integrate **machine learning models** for anomaly detection & forecasting.
-
----
-
-## **8. Conclusion**
-The **backend architecture** for the Water Quality Monitoring Platform is designed for **high throughput, fault tolerance, and scalability**. By implementing **task prioritization, message queues, database sharding, and caching strategies**, the system can handle **millions of sensors while maintaining low-latency responses**.
 
 ---
