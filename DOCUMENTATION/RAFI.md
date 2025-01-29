@@ -30,128 +30,108 @@ The platform's backend is designed to support **10 million IoT sensors**, with t
 
 ---
 
-## 3. Key Backend Design Decisions
+## **3. Backend Logic & Workflow**
 
-### **Task Prioritization**
-To ensure critical tasks are executed first, tasks are categorized into three priority levels:
+### **Core Backend Logic Overview**
+The backend follows a **distributed microservices architecture**, ensuring that tasks are processed efficiently and bottlenecks are minimized.  
 
-| Priority | Task Type | Processing Time |
-|----------|-------------------------|----------------|
-| High | Contamination Alerts | <300ms |
-| Medium | Dashboard Updates | <1s |
-| Low | Analytics & Reports | Batch processing |
-
-**RabbitMQ** handles prioritization using **priority queues**:
-- `high_priority_queue` → Contamination alerts
-- `medium_priority_queue` → Dashboard updates
-- `low_priority_queue` → Reports and analytics
+### **Key Responsibilities of the Backend:**
+1. **Ingesting data** from **10 million IoT sensors** in real-time.
+2. **Processing data** to detect water quality issues.
+3. **Storing data** efficiently using sharded databases and cloud storage.
+4. **Prioritizing tasks** to ensure fast alerts for contamination events.
+5. **Scaling dynamically** to handle high loads and ensure system reliability.
 
 ---
 
-### **Message Queue Architecture**
+### **Step-by-Step Backend Workflow**
 
-#### **Why Message Queues?**
-- **Decouples ingestion from processing**, ensuring scalability.
-- **Prevents bottlenecks** by buffering high-throughput data streams.
-- **Ensures fault tolerance** in case of failures.
+#### **A. Data Ingestion** (Handling 10M sensors)
+- **Sensors → MQTT/Kafka → Load Balancer → API Gateway → App Server**  
+- Each sensor sends data every **10 seconds** (~1M TPS total).  
+- A **Kafka cluster** partitions the data to multiple consumer groups for parallel processing.  
 
-#### **Queue Implementation**
-- **RabbitMQ (for real-time processing)**:
-  - Direct exchange routing with priority-based queues.
-  - Workers consume messages based on priority levels.
-- **Kafka (for high-volume sensor ingestion)**:
-  - Partitions data by **region** or **sensor type**.
-  - Batch consumers process data asynchronously.
+#### **B. Data Processing** (Detecting anomalies)
+- The **Water Quality Monitoring Service** analyzes data for:
+  - **pH imbalances**
+  - **Turbidity spikes**
+  - **Dissolved oxygen anomalies**
+  - **Temperature variations**
+- AI-based anomaly detection models flag potential issues.
 
-##### **Queue Throughput Calculation**
-- **Total tasks per second:** 1,000,000
-- **High priority (50%)**: 500,000 tasks/sec
-- **Medium priority (30%)**: 300,000 tasks/sec
-- **Low priority (20%)**: 200,000 tasks/sec
-- **RabbitMQ Node Throughput**: 50,000 messages/sec
-- **Required RabbitMQ nodes**:
-  ```
-  Nodes = Total throughput / Throughput per node
-  Nodes = 500,000 / 50,000 = 10 (for high-priority tasks)
-  ```
+#### **C. Alerts & Notifications** (Real-time responses)
+- If contamination is detected:
+  - The **Notification Service** pushes alerts via WebSockets, SMS, or email.
+  - **RabbitMQ prioritizes urgent contamination alerts** to ensure sub-300ms response times.
+  
+#### **D. Data Storage** (Efficient data management)
+- **PostgreSQL (sharded)** stores structured real-time sensor data.
+- **AWS S3** archives historical data for analytics and compliance.
 
----
-
-## 4. Database Schema & Scalability
-
-### **Database Selection**
-- **PostgreSQL** for structured, real-time sensor data.
-- **AWS S3** for long-term storage and compliance.
-
-### **PostgreSQL Schema (Sharded for Scalability)**
-```sql
-CREATE TABLE sensor_readings (
-    sensor_id BIGINT NOT NULL,
-    timestamp TIMESTAMP NOT NULL,
-    ph_level FLOAT,
-    turbidity FLOAT,
-    temperature FLOAT,
-    dissolved_oxygen FLOAT,
-    region VARCHAR(20),
-    PRIMARY KEY (sensor_id, timestamp)
-) PARTITION BY HASH (sensor_id);
-```
-
-```sql
-CREATE TABLE contamination_alerts (
-    alert_id BIGSERIAL PRIMARY KEY,
-    sensor_id BIGINT NOT NULL,
-    timestamp TIMESTAMP NOT NULL,
-    contaminant_type VARCHAR(50),
-    severity_level INT,
-    resolved BOOLEAN DEFAULT FALSE
-);
-```
-
-### **AWS S3 Storage for Historical Data**
-- Bucket structure:
-  ```plaintext
-  s3://water_quality_data/<region>/<year>/<month>/<day>/
-  ```
-- Example File:
-  ```json
-  {
-      "sensor_id": 123,
-      "readings": [
-          { "timestamp": "2025-01-27T12:00:00Z", "ph_level": 7.2, "turbidity": 1.5, "temperature": 21.0 }
-      ]
-  }
-  ```
+#### **E. User Dashboards & APIs**  
+- **REST & GraphQL APIs** provide access to live water quality data.
+- Users visualize contamination risks in real time.
 
 ---
 
-### **Sharding & Scaling Calculations**
+## **4. Key Backend Components**
 
-#### **Sharding Strategy**
-- **10,000,000 sensors**, partitioned across **32 shards**.
-- **Sharding Key:** `sensor_id` (hash-based partitioning).
+### **1. App Server**
+- **Manages incoming requests** and routes them to the correct services.
+- **Implements API Rate Limiting & Authentication** (OAuth2, JWT).
 
-#### **Transaction Throughput Per Shard**
-1. **Sensors per shard**:
-   ```
-   Sensors per shard = Total sensors / Shards
-   = 10,000,000 / 32 = 312,500
-   ```
-2. **TPS per sensor**:
-   ```
-   Each sensor sends 1 record every 10 seconds → 0.1 TPS per sensor.
-   ```
-3. **Total TPS per shard**:
-   ```
-   TPS per shard = 312,500 * 0.1 = 31,250 TPS
-   ```
-4. **PostgreSQL Limit**:
-   - PostgreSQL supports **30,000 TPS per table**.
-   - **Solution**: Increase shards from **32 → 40**, reducing TPS per shard to **25,000 TPS**, ensuring scalability.
+### **2. Message Queue (RabbitMQ + Kafka)**
+- **Kafka** for high-throughput data ingestion (millions of sensor readings/sec).
+- **RabbitMQ** for real-time alerts with priority queues.
+
+### **3. Database Architecture**
+- **PostgreSQL (Sharded)**
+  - Hash-based partitioning by `sensor_id`.
+  - Supports **30,000 TPS per shard**.
+- **AWS S3**
+  - Long-term, cost-efficient storage for historical analysis.
+
+### **4. Task Prioritization (RabbitMQ)**
+| **Priority** | **Task**                  | **Latency Goal** |
+|-------------|--------------------------|----------------|
+| High        | Contamination alerts      | < 300ms       |
+| Medium      | Dashboard updates         | < 1s          |
+| Low         | Batch analytics reports   | Async         |
 
 ---
 
-## 5. Future Scalability & Optimizations
+## **5. Scalability & Fault Tolerance**
+1. **Auto-scaling Kubernetes cluster** to handle varying sensor loads.
+2. **Sharded database design** prevents bottlenecks.
+3. **Multi-region deployments** reduce latency for global users.
+4. **Caching with Redis** speeds up repeated queries.
+
+---
+
+## **6. Backend Load Calculation & Justification**
+
+### **TPS Calculation**
+- **10M sensors sending data every 10 seconds** → 1M TPS.
+- Each **shard handles ~25K TPS**, safely below PostgreSQL’s 30K limit.
+
+### **Queue Throughput**
+- **RabbitMQ handles 100K tasks/sec** via clustering.
+- **Kafka partitions** balance 1M TPS load across brokers.
+
+### **Latency Optimization**
+- **Redis caching** ensures **< 500ms** API response times.
+- **Prioritized task processing** ensures contamination alerts within **300ms**.
+
+---
+
+### **Why This Backend Logic Works**
+- **Scalable**: Supports **millions of sensors** with auto-scaling components.
+- **Efficient**: Uses **sharded databases, priority queues, and caching**.
+- **Reliable**: Handles **high throughput with fault tolerance mechanisms**.
+
+---
+
+## **7. Future Scalability & Optimizations**
 
 ### **Immediate Scaling Solutions**
 - **Increase PostgreSQL shards from 32 → 40** for better TPS distribution.
@@ -167,7 +147,7 @@ CREATE TABLE contamination_alerts (
 
 ---
 
-## 6. Conclusion
+## **8. Conclusion**
 The **backend architecture** for the Water Quality Monitoring Platform is designed for **high throughput, fault tolerance, and scalability**. By implementing **task prioritization, message queues, database sharding, and caching strategies**, the system can handle **millions of sensors while maintaining low-latency responses**.
 
 ---
