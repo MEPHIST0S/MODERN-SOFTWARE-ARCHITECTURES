@@ -6,7 +6,7 @@
 2. [High-Level Architecture](#high-level-architecture)
 3. [System Design Considerations & Scalability Strategies](#system-design-considerations--scalability-strategies)
 4. [Data Flow](#data-flow)
-5. [API Structure](#api-structure)
+5. [API Structure, Rate Limiting & Load Management](#api-structure-rate-limiting--load-management)
 6. [Security & Authentication](#security--authentication)
 7. [Integrating IoT Sensors and External APIs for Data Aggregation & Endpoints](#integrating-iot-sensors-and-external-apis-for-data-aggregation--endpoints)
 8. [Authentication & RBAC System Design](#authentication--rbac-system-design)
@@ -105,25 +105,41 @@ The **Water Quality Monitoring Platform** is designed to track and analyze water
 
 ---
 
-## API Structure
+## API Structure, Rate Limiting & Load Management
 
-### API Rate Limiting & Load Management
+To efficiently manage **30M sensor requests per second**, the system employs **rate limiting, load balancing, and asynchronous processing**.
 
-To handle **30M sensor requests per second**, the system applies **rate limiting and load balancing strategies**:
+### API Gateway Rate Limiting Mechanism
 
-#### **API Gateway Rate Limiting**
+- **Rate Limit Per Sensor** → Each IoT sensor is restricted to **3 requests per second**.
+- **Exceeding the Limit** → Requests exceeding this rate receive an **HTTP 429 Too Many Requests** response.
 
-- Each sensor is restricted to **3 requests/sec**.
-- Requests exceeding this limit receive an **HTTP 429 Too Many Requests** response.
+#### Handling Excess Requests
 
-#### **Load Balancing**
+- Sensors must **retry after a cooldown period** (e.g., **exponential backoff**).
+- **Excess requests are not queued** to prevent API server overload.
+
+### Rate Limiting Implementation
+
+#### **Algorithm Used:**
+
+- The system employs a **Token Bucket Algorithm** at the **API Gateway** level.
+- Each sensor receives **3 tokens per second**, with each request consuming one token.
+- If a sensor exceeds its token quota, it must wait until new tokens are available.
+
+#### **API Gateway Enforces Rate Limits:**
+
+- Implemented via **NGINX, Kong API Gateway, or AWS API Gateway**.
+- Configured to automatically reject requests exceeding defined quotas.
+
+### Load Balancing Strategy
 
 - **DNS Load Balancer** distributes traffic across multiple **region-based Load Balancers**.
-- **Load Balancers** direct traffic to horizontally scaled **API servers**.
+- **API Servers** are **horizontally scaled** to ensure **high availability and fault tolerance**.
 
-#### **Asynchronous Processing (RabbitMQ)**
+### Asynchronous Processing (RabbitMQ)
 
-- Instead of direct database writes, sensor data ingestion is handled **asynchronously**.
+- Instead of direct database writes, **sensor data ingestion is handled asynchronously**.
 - **RabbitMQ queues** allow system elasticity, preventing sudden spikes from overloading the database.
 
 ---
