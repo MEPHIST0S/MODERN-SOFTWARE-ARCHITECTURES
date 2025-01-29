@@ -6,10 +6,11 @@
 2. [High-Level Architecture](#high-level-architecture)
 3. [System Design Considerations & Scalability Strategies](#system-design-considerations--scalability-strategies)
 4. [Data Flow](#data-flow)
-5. [API Structure & Endpoints](#api-structure--endpoints)
+5. [API Structure](#api-structure)
 6. [Security & Authentication](#security--authentication)
-7. [Integrating IoT Sensors and External APIs for Data Aggregation](#integrating-iot-sensors-and-external-apis-for-data-aggregation)
-8. [Conclusion](#conclusion)
+7. [Integrating IoT Sensors and External APIs for Data Aggregation & Endpoints](#integrating-iot-sensors-and-external-apis-for-data-aggregation--endpoints)
+8. [Authentication & RBAC System Design](#authentication--rbac-system-design)
+9. [Conclusion](#conclusion)
 
 ---
 
@@ -79,20 +80,22 @@ The **Water Quality Monitoring Platform** is designed to track and analyze water
 
 ### Challenges & Solutions
 
-| Component               | Challenge                                        | Solution Implemented                                      |
-|-------------------------|------------------------------------------------|----------------------------------------------------------|
-| Load Balancers         | 10M IoT devices generating requests            | DNS Load Balancer distributes requests among multiple load balancers. |
-| Database (PostgreSQL)  | Max throughput 30,000 TPS; 32 TB per table      | Implemented sharding and read replicas to scale horizontally. |
-| Object Storage (S3)    | Max 3,500 PUT / 5,500 GET req/sec per bucket    | Used bucket partitioning and multi-part uploads.         |
-| Task Queue (Celery Workers) | 100,000 tasks/sec for background processing | RabbitMQ clustering and horizontal scaling of workers.   |
-| Caching Strategy       | Frequent queries increasing database load       | Redis caching for sensor metadata and contamination thresholds. |
-| Latency Requirements   | AI model execution time must be <500ms         | Optimized ML inference service and preloaded models.     |
+| Component              | Challenge                                      | Solution Implemented |
+|------------------------|----------------------------------------------|----------------------|
+| **API Gateway**       | High volume of sensor requests (3 req/sec/sensor) | Implemented rate limiting at API Gateway level (max 3 req/sec/sensor) |
+| **Load Balancers**    | 10M IoT sensors generating 30M requests/sec   | DNS Load Balancer + multiple backend LB instances to distribute traffic |
+| **Message Queue (RabbitMQ)** | Handling 30M tasks/sec                   | Horizontal scaling of workers and clustering for high-throughput processing |
+| **Database (PostgreSQL)** | High write throughput from sensor data    | Sharding and replication to support concurrent writes |
+| **Object Storage (S3)** | Max 3,500 PUT / 5,500 GET req/sec per bucket | Used bucket partitioning and multi-part uploads to optimize scalability |
+| **Task Queue (Celery Workers)** | 100,000 tasks/sec for background processing | RabbitMQ clustering and worker autoscaling to maintain efficiency |
+| **Caching Strategy**  | Frequent queries increasing database load     | Redis caching for sensor metadata and contamination thresholds |
+| **Latency Requirements** | AI model execution time must be <500ms      | Optimized ML inference service and preloaded models |
 
 ---
 
 ## Data Flow
 
-1. **IoT Sensors** send real-time data → **Load Balancers** → **App Server**.
+1. **IoT Sensors** send real-time data → **Load Balancers** → **App Server**. IoT Sensors send real-time water quality data at an expected rate of 3 requests/sec per sensor. With 10M sensors, this results in 30M API requests per second, distributed across multiple Load Balancers before reaching the API Gateway.
 2. **Write API** processes data → stores in **PostgreSQL** (structured) or **S3** (raw/historical).
 3. **RabbitMQ** distributes tasks → **Worker Services** process data.
 4. **Contamination Detection & AI Models** analyze data → results stored in **PostgreSQL**.
@@ -102,15 +105,26 @@ The **Water Quality Monitoring Platform** is designed to track and analyze water
 
 ---
 
-## API Structure & Endpoints
+## API Structure
 
-### Sample API Endpoints
+### API Rate Limiting & Load Management
 
-- **GET /api/sensors** - Retrieve sensor data.
-- **POST /api/alerts** - Submit alerts for threshold breaches.
-- **GET /api/reports** - Fetch historical analytics reports.
+To handle **30M sensor requests per second**, the system applies **rate limiting and load balancing strategies**:
 
-(Define additional API endpoints with request and response examples.)
+#### **API Gateway Rate Limiting**
+
+- Each sensor is restricted to **3 requests/sec**.
+- Requests exceeding this limit receive an **HTTP 429 Too Many Requests** response.
+
+#### **Load Balancing**
+
+- **DNS Load Balancer** distributes traffic across multiple **region-based Load Balancers**.
+- **Load Balancers** direct traffic to horizontally scaled **API servers**.
+
+#### **Asynchronous Processing (RabbitMQ)**
+
+- Instead of direct database writes, sensor data ingestion is handled **asynchronously**.
+- **RabbitMQ queues** allow system elasticity, preventing sudden spikes from overloading the database.
 
 ---
 
@@ -122,7 +136,7 @@ The **Water Quality Monitoring Platform** is designed to track and analyze water
 
 ---
 
-## Integrating IoT Sensors and External APIs for Data Aggregation
+## Integrating IoT Sensors and External APIs for Data Aggregation & Endpoints
 
 ### 1. Connection to High-Level Architecture
 
@@ -239,6 +253,136 @@ External systems (municipal water management, industrial plants, environmental m
 | Endpoint         | Method | Description            | Output Example |
 |-----------------|--------|------------------------|----------------|
 | `/api/status`   | GET    | Check API health status. | `{ "status": "healthy", "db": "connected", "workers": "running" }` |
+
+---
+
+## Authentication & RBAC System Design
+
+### **Requirements**
+
+- User authentication via OAuth2
+- Role-based access control (Operator, Scientist, Admin)
+- Session management
+- User profile management
+- Secure password storage and transmission
+
+---
+
+![Authorization and RBAC](<../DIAGRAMS/PNG/Authorization and RBAC.png>)  
+
+## **Flow Overview**
+
+### **1. User Request Initiation**
+
+- A **user** makes an API request to access a service.
+- The request is first routed through the **API Gateway**.
+- The **API Gateway** forwards the request to the **App Server** for authentication.
+
+### **2. OAuth2 Authentication**
+
+- The **App Server** communicates with the **OAuth2 Authentication Service** to verify user credentials.
+- If credentials are **valid**, token validation begins.
+
+### **3. Token Validation**
+
+#### **Does the User Have an Access Token?**
+
+- **Yes → Check if the token has expired.**
+- **No → Check for a refresh token.**
+
+#### **Has the Access Token Expired?**
+
+- **No → Proceed to role validation.**
+- **Yes → Check if a refresh token exists.**
+
+### **4. Refresh Token Handling**
+
+- If the access token has expired, the system checks for a **refresh token**:
+  - **Valid Refresh Token?**
+    - **Yes → Generate a new access token.**
+    - **No → 401 Unauthorized (User must log in again).**
+  - If the **refresh token itself is expired**, the user must **re-authenticate**.
+
+### **5. Role-Based Access Control (RBAC)**
+
+- If the access token is valid, the system checks the **user’s role**:
+  - **Valid Role → Access Granted.**
+  - **Invalid Role → 403 Forbidden.**
+
+### **6. Accessing System Services**
+
+- If access is granted, the user is redirected to the appropriate system service:
+  - **Admins:** Manage Users & Reports
+  - **Scientists:** View Analytics & Water Data
+  - **Operators:** Access Dashboard & Notifications
+  - Other connected services include:
+    - **RabbitMQ (Message Broker)**
+    - **Notification Service**
+    - **Predictive Analytics Service**
+    - **Monitoring Service**
+    - **PostgreSQL Database & Redis Cache**
+
+---
+
+## **Error Handling**
+
+| Condition | Response Code | Action Required |
+|-----------|--------------|----------------|
+| Invalid credentials | `401 Unauthorized` | User must log in again |
+| No access/refresh token | `401 Unauthorized` | User must re-authenticate |
+| Expired refresh token | `401 Unauthorized` | User must log in again |
+| Invalid role | `403 Forbidden` | Access denied |
+
+---
+
+## **Technologies Used**
+
+- **OAuth2** for secure authentication
+- **API Gateway** for request routing
+- **PostgreSQL & Redis** for token storage and caching
+- **RabbitMQ** for message brokering
+
+---
+
+## **Calculations**
+
+### **Constraints**
+
+- Support **1 million active users**
+- Authentication response time **< 200ms**
+- Token validation **< 50ms**
+- **99.99% availability**
+
+### **Capacity Planning**
+
+- **Daily active users:** 1M
+- **Peak concurrent users:** 100K
+- **Average session duration:** 8 hours
+- **Token size:** ~1KB
+- **User profile size:** ~2KB
+
+### **Data Storage**
+
+1. **User Store (PostgreSQL)**
+    - User profiles
+    - Authentication data
+    - Scaling: Read replicas
+    - Size: ~3GB (**1M users × 3KB**)
+2. **Session Store (Redis)**
+    - Active sessions
+    - Token blacklist
+    - Scaling: Redis cluster
+    - Size: ~100MB (**100K sessions × 1KB**)
+
+---
+
+## **Scale & Performance**
+
+### **Scalability**
+
+- **Horizontal scaling** of Authentication service
+- **Redis cluster** for session management
+- **Database read replicas** for distributed workload
 
 ---
 
