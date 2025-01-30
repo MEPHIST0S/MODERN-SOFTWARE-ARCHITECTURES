@@ -167,8 +167,6 @@ This section is directly linked to the **Ingress & API Management** and **Data P
 
 ### 2. Breakdown of Data Aggregation Process
 
-![Integrating IoT Sensors and External APIs for Data Aggregation](../DIAGRAMS/PNG/API.png)
-
 The data aggregation process involves ingesting, processing, storing, and making sensor data available via external APIs.
 
 #### **2.1 Data Collection from IoT Sensors**
@@ -515,8 +513,8 @@ The backend follows a **distributed microservices architecture**, ensuring effic
 
 **1. Sharding (Horizontal Partitioning):**
 
-- **Challenge Addressed:** High write throughput from 10M IoT sensors generating 30M requests/second.  
-- **Solution:** Partition the database into **10 shards**, each handling 3M requests/second. Shards can be distributed based on sensor IDs (e.g., ranges of 1M sensors per shard).  
+- **Challenge Addressed:** High write throughput from 10M IoT sensors generating 10M requests/second.  
+- **Solution:** Partition the database into **10 shards**, each handling 1M requests/second. Shards can be distributed based on sensor IDs (e.g., ranges of 1M sensors per shard).  
 - **Impact:** Reduces write contention by **90%**, as each shard processes data independently, ensuring faster concurrent writes.
 
 **2. Indexing:**  
@@ -589,7 +587,7 @@ The backend follows a **distributed microservices architecture**, ensuring effic
 
 | **Optimization**        | **Challenge Solved**                     | **Target Improvements**                                      |
 |--------------------------|------------------------------------------|-------------------------------------------------------------|
-| **Sharding**             | Handles 30M writes/second               | Reduces write contention by **90%**                         |
+| **Sharding**             | Handles 10M writes/second               | Reduces write contention by **90%**                         |
 | **Indexing**             | Speeds up historical queries            | Improves query speed by **80%-90%**                         |
 | **WAL Tuning**           | Reduces write latency                   | Lowers write latency by **30%-40%**                         |
 | **Read Replicas**        | Balances read and write traffic         | Offloads **70% of reads** to replicas                       |
