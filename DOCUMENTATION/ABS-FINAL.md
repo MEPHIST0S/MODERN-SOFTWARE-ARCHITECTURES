@@ -416,7 +416,7 @@ The backend follows a **distributed microservices architecture**, ensuring effic
 
 #### **3.1 Data Ingestion (Handling 10M sensors)**
 
-- **Sensors → Load Balancer → API Gateway → App Server**
+- **Sensors → Load Balancer → App Server → API Gateway**
 - Each sensor sends **1 request per second** (**10M RPS total**).
 - **API Gateway applies rate limiting** (1 req/sec per sensor).
 - The **App Server forwards validated data** to the Write API.
