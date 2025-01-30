@@ -85,7 +85,7 @@ The **Water Quality Monitoring Platform** is designed to track and analyze water
 | Component              | Challenge                                      | Solution Implemented |
 |------------------------|----------------------------------------------|----------------------|
 | **API Gateway**       | High volume of sensor requests (1 req/sec/sensor) | Implemented rate limiting at API Gateway level (max 1 req/sec/sensor) |
-| **Load Balancers**    | 10M IoT sensors generating 30M requests/sec   | DNS Load Balancer + multiple backend LB instances to distribute traffic |
+| **Load Balancers**    | 10M IoT sensors generating 10M requests/sec   | DNS Load Balancer + multiple backend LB instances to distribute traffic |
 | **Message Queue (RabbitMQ)** | Handling 10M tasks/sec                   | Horizontal scaling of workers and clustering for high-throughput processing |
 | **Database (PostgreSQL)** | High write throughput from sensor data    | Sharding and replication to support concurrent writes |
 | **Object Storage (S3)** | Max 3,500 PUT / 5,500 GET req/sec per bucket | Used bucket partitioning and multi-part uploads to optimize scalability |
@@ -97,7 +97,7 @@ The **Water Quality Monitoring Platform** is designed to track and analyze water
 
 ## Data Flow
 
-1. **IoT Sensors** send real-time data → **Load Balancers** → **App Server**. IoT Sensors send real-time water quality data at an expected rate of 1 requests/sec per sensor. With 10M sensors, this results in 30M API requests per second, distributed across multiple Load Balancers before reaching the API Gateway.
+1. **IoT Sensors** send real-time data → **Load Balancers** → **App Server**. IoT Sensors send real-time water quality data at an expected rate of 1 requests/sec per sensor. With 10M sensors, this results in 10M API requests per second, distributed across multiple Load Balancers before reaching the API Gateway.
 2. **Write API** processes data → stores in **PostgreSQL** (structured) or **S3** (raw/historical).
 3. **RabbitMQ** distributes tasks → **Worker Services** process data.
 4. **Contamination Detection & AI Models** analyze data → results stored in **PostgreSQL**.
