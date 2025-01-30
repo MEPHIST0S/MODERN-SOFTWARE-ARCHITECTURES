@@ -605,7 +605,7 @@ The backend follows a **distributed microservices architecture**, ensuring effic
 
 - **Database Performance:** Addressed high write and query latency through sharding, indexing, replicas, and partitioning.  
 - **Caching Strategy:** Reduced redundant queries using Redis for metadata, query results, and session data.  
-- **Result:** Improved database scalability, reduced latency for reads and writes, and ensured the system can handle **10M IoT sensors generating 30M requests/sec** efficiently.  
+- **Result:** Improved database scalability, reduced latency for reads and writes, and ensured the system can handle **10M IoT sensors generating 10M requests/sec** efficiently.  
 
 ---
 
